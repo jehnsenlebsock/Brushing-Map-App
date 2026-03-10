@@ -274,15 +274,22 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const REQUIRED_ACCURACY = 5;
+    const CONSECUTIVE_GOOD_FIXES_REQUIRED = 3;
+    const AVERAGE_FIX_COUNT = 5;
+    const MIN_WARMUP_FIXES = 2;
+    const STALE_FIX_MS = 4000;
+    const DUPLICATE_DISTANCE_WARNING_METERS = 4;
 
     const state = {
       lakeName: '',
       surveyDate: '',
       currentType: '',
       points: [],
-      activeWatchId: null
+      activeWatchId: null,
+      captureSession: null
     };
 
     const els = {
@@ -429,6 +436,7 @@
         navigator.geolocation.clearWatch(state.activeWatchId);
         state.activeWatchId = null;
       }
+      state.captureSession = null;
     }
 
     function resetCaptureUi() {
@@ -439,7 +447,8 @@
 
     function csvEscape(value) {
       const stringValue = String(value ?? '');
-      if (/[",\n]/.test(stringValue)) {
+      if (/[",
+]/.test(stringValue)) {
         return '"' + stringValue.replace(/"/g, '""') + '"';
       }
       return stringValue;
@@ -458,7 +467,8 @@
           point.timestamp
         ]);
       });
-      return rows.map(r => r.map(csvEscape).join(',')).join('\n');
+      return rows.map(r => r.map(csvEscape).join(',')).join('
+');
     }
 
     function sanitizeFilePart(value) {
@@ -518,7 +528,8 @@
         csvText,
         '',
         'Automatic background sending from the app itself requires a backend email service.'
-      ].join('\n');
+      ].join('
+');
       const mailto = `mailto:jehnsen.lebsock@nebraska.gov?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       window.location.href = mailto;
     }
@@ -546,6 +557,86 @@
       showPage('location');
     }
 
+    function toRadians(degrees) {
+      return degrees * Math.PI / 180;
+    }
+
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = toRadians(lat2 - lat1);
+      const dLon = toRadians(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function averageAcceptedFixes(fixes) {
+      const lat = fixes.reduce((sum, fix) => sum + fix.latitude, 0) / fixes.length;
+      const lng = fixes.reduce((sum, fix) => sum + fix.longitude, 0) / fixes.length;
+      const acc = fixes.reduce((sum, fix) => sum + fix.accuracy, 0) / fixes.length;
+      const timestamp = fixes[fixes.length - 1].timestamp;
+      return { latitude: lat, longitude: lng, accuracy: acc, timestamp };
+    }
+
+    function updateProgressNote() {
+      const session = state.captureSession;
+      if (!session) {
+        els.accuracyNote.innerHTML = 'Press log location and hold still while the app waits for a GPS fix of 5 meters or better.';
+        return;
+      }
+
+      if (session.acceptedFixes.length >= AVERAGE_FIX_COUNT) {
+        els.accuracyNote.innerHTML = `Averaging best fixes (${session.acceptedFixes.length}/${AVERAGE_FIX_COUNT})...`;
+        return;
+      }
+
+      if (session.goodFixesInRow >= CONSECUTIVE_GOOD_FIXES_REQUIRED) {
+        els.accuracyNote.innerHTML = `Collecting best-quality fixes to average (${session.acceptedFixes.length}/${AVERAGE_FIX_COUNT})...`;
+        return;
+      }
+
+      if (session.warmupFixesSeen < MIN_WARMUP_FIXES) {
+        els.accuracyNote.innerHTML = `Warming up GPS (${session.warmupFixesSeen}/${MIN_WARMUP_FIXES})... hold still.`;
+        return;
+      }
+
+      els.accuracyNote.innerHTML = `Waiting for ${CONSECUTIVE_GOOD_FIXES_REQUIRED} consecutive fresh fixes at ${REQUIRED_ACCURACY}m or better. Current streak: ${session.goodFixesInRow}.`;
+    }
+
+    function saveAveragedPoint() {
+      const session = state.captureSession;
+      const averaged = averageAcceptedFixes(session.acceptedFixes);
+      const newPoint = {
+        latitude: averaged.latitude,
+        longitude: averaged.longitude,
+        accuracy: averaged.accuracy,
+        habitatType: state.currentType,
+        timestamp: formatTimestamp(averaged.timestamp)
+      };
+
+      state.points.push(newPoint);
+      updatePointsList();
+      els.latValue.textContent = averaged.latitude.toFixed(6);
+      els.lngValue.textContent = averaged.longitude.toFixed(6);
+      updateAccuracyDisplay(averaged.accuracy);
+
+      let message = `Point saved from ${session.acceptedFixes.length} averaged fixes with ${averaged.accuracy.toFixed(2)} meter average accuracy.`;
+      if (state.points.length > 1) {
+        const previous = state.points[state.points.length - 2];
+        const distanceFromPrevious = distanceMeters(previous.latitude, previous.longitude, newPoint.latitude, newPoint.longitude);
+        if (distanceFromPrevious < DUPLICATE_DISTANCE_WARNING_METERS) {
+          message += ` Warning: this point is only ${distanceFromPrevious.toFixed(1)} meters from the previous saved point.`;
+        }
+      }
+
+      stopWatch();
+      resetCaptureUi();
+      els.accuracyNote.innerHTML = 'Point saved. You can log the next location when ready.';
+      alertMsg(message, 'success');
+    }
+
     function beginCapture() {
       clearAlert();
       if (!navigator.geolocation) {
@@ -554,34 +645,64 @@
       }
 
       stopWatch();
+      state.captureSession = {
+        startTime: Date.now(),
+        warmupFixesSeen: 0,
+        goodFixesInRow: 0,
+        acceptedFixes: []
+      };
+
       els.spinnerWrap.classList.remove('hidden');
       els.captureBtn.disabled = true;
       els.captureBtn.textContent = 'Waiting for accurate GPS fix...';
-      els.accuracyNote.innerHTML = 'Looking for a GPS reading of <b>5 meters or better</b>. Hold still for best results.';
+      updateAccuracyDisplay(NaN);
+      els.latValue.textContent = '-';
+      els.lngValue.textContent = '-';
+      updateProgressNote();
 
       state.activeWatchId = navigator.geolocation.watchPosition(
         (pos) => {
+          const session = state.captureSession;
+          if (!session) return;
+
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
           const acc = pos.coords.accuracy;
+          const timestamp = pos.timestamp || Date.now();
+          const isFresh = (Date.now() - timestamp) <= STALE_FIX_MS;
 
           els.latValue.textContent = lat.toFixed(6);
           els.lngValue.textContent = lng.toFixed(6);
           updateAccuracyDisplay(acc);
 
+          session.warmupFixesSeen += 1;
+          if (session.warmupFixesSeen <= MIN_WARMUP_FIXES) {
+            updateProgressNote();
+            return;
+          }
+
+          if (!isFresh) {
+            session.goodFixesInRow = 0;
+            updateProgressNote();
+            return;
+          }
+
           if (acc <= REQUIRED_ACCURACY) {
-            stopWatch();
-            state.points.push({
-              latitude: lat,
-              longitude: lng,
-              accuracy: acc,
-              habitatType: state.currentType,
-              timestamp: formatTimestamp(pos.timestamp || Date.now())
-            });
-            updatePointsList();
-            resetCaptureUi();
-            els.accuracyNote.innerHTML = 'Point saved. You can log the next location when ready.';
-            alertMsg(`Point saved with ${acc.toFixed(2)} meter accuracy.`, 'success');
+            session.goodFixesInRow += 1;
+          } else {
+            session.goodFixesInRow = 0;
+          }
+
+          if (session.goodFixesInRow >= CONSECUTIVE_GOOD_FIXES_REQUIRED && acc <= REQUIRED_ACCURACY) {
+            session.acceptedFixes.push({ latitude: lat, longitude: lng, accuracy: acc, timestamp });
+            session.acceptedFixes.sort((a, b) => a.accuracy - b.accuracy);
+            session.acceptedFixes = session.acceptedFixes.slice(0, AVERAGE_FIX_COUNT);
+          }
+
+          updateProgressNote();
+
+          if (session.acceptedFixes.length >= AVERAGE_FIX_COUNT) {
+            saveAveragedPoint();
           }
         },
         (err) => {
@@ -597,7 +718,7 @@
         {
           enableHighAccuracy: true,
           maximumAge: 0,
-          timeout: 20000
+          timeout: 60000
         }
       );
     }
