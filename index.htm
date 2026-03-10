@@ -1,223 +1,677 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lake Brush Pile Logger</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<style>
-body{background:#f5f7fb}
-.app-shell{max-width:720px;margin:auto;padding:1rem}
-.card-soft{border:0;border-radius:1.25rem;box-shadow:0 .5rem 1.5rem rgba(0,0,0,.08)}
-.big-btn{min-height:56px;font-size:1.05rem;border-radius:.9rem}
-.hidden{display:none!important}
-.coord-box{background:#f8f9fa;border-radius:1rem;padding:1rem;font-family:monospace}
-.spinner-big{width:3rem;height:3rem}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lake Brush Pile Logger</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <style>
+    :root {
+      --app-max-width: 760px;
+    }
+
+    body {
+      background: #f5f7fb;
+      min-height: 100vh;
+    }
+
+    .app-shell {
+      max-width: var(--app-max-width);
+      margin: 0 auto;
+      padding: 1rem;
+    }
+
+    .card-soft {
+      border: 0;
+      border-radius: 1.25rem;
+      box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.08);
+    }
+
+    .big-btn {
+      min-height: 56px;
+      font-size: 1.05rem;
+      border-radius: 0.9rem;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .coord-box {
+      background: #f8f9fa;
+      border-radius: 1rem;
+      padding: 1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.95rem;
+    }
+
+    .spinner-big {
+      width: 3rem;
+      height: 3rem;
+    }
+
+    .accuracy-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.8rem;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #fff;
+    }
+
+    .accuracy-dot {
+      width: 0.8rem;
+      height: 0.8rem;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.95);
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.2);
+    }
+
+    .point-item {
+      border: 1px solid #e9ecef;
+      border-radius: 1rem;
+      padding: 0.9rem;
+      background: #fff;
+    }
+
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(245,247,251,0.9);
+      backdrop-filter: blur(8px);
+    }
+
+    .help-list li + li {
+      margin-top: 0.5rem;
+    }
+  </style>
 </head>
 <body>
+  <div class="app-shell">
+    <div class="top-bar pb-2 mb-3">
+      <div class="d-flex justify-content-between align-items-center gap-2 pt-2">
+        <div>
+          <h1 class="h3 fw-bold mb-1">Lake Brush Pile Logger</h1>
+          <p class="text-secondary mb-0">High-accuracy GPS habitat logging for mobile field use</p>
+        </div>
+        <button class="btn btn-outline-primary" data-bs-toggle="offcanvas" data-bs-target="#helpPanel" aria-controls="helpPanel">Help</button>
+      </div>
+    </div>
 
-<div class="app-shell">
+    <div id="alertArea" class="mb-3"></div>
 
-<div class="text-center mb-4">
-<h1 class="h3 fw-bold">Lake Brush Pile Logger</h1>
-<p class="text-secondary">High accuracy GPS logging</p>
-</div>
+    <section id="pageSetup" class="card card-soft p-4">
+      <h4 class="mb-3">Trip details</h4>
 
-<div id="alertArea"></div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="lakeName">Lake name</label>
+        <input id="lakeName" class="form-control form-control-lg" type="text" placeholder="Enter lake name">
+      </div>
 
-<section id="pageSetup" class="card card-soft p-4">
-<h4>Trip details</h4>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="surveyDate">Date</label>
+        <input id="surveyDate" class="form-control form-control-lg" type="date">
+      </div>
 
-<div class="mb-3">
-<label class="form-label">Lake name</label>
-<input id="lakeName" class="form-control" type="text">
-</div>
+      <h5 class="mb-3">What type of structure is being placed?</h5>
 
-<div class="mb-3">
-<label class="form-label">Date</label>
-<input id="surveyDate" class="form-control" type="date">
-</div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="structureType">Structure type</label>
+        <select id="structureType" class="form-select form-select-lg">
+          <option value="">Choose one</option>
+          <option value="Cedar Tree">Cedar tree</option>
+          <option value="Artificial Habitat">Artificial habitat</option>
+          <option value="__custom__">Type your own</option>
+        </select>
+      </div>
 
-<h5>What type of structure is being placed?</h5>
+      <div id="customTypeWrap" class="mb-3 hidden">
+        <label class="form-label fw-semibold" for="customType">Custom structure type</label>
+        <input id="customType" class="form-control form-control-lg" placeholder="Enter custom type">
+      </div>
 
-<select id="structureType" class="form-select mb-3">
-<option value="">Choose one</option>
-<option value="Cedar Tree">Cedar tree</option>
-<option value="Artificial Habitat">Artificial habitat</option>
-<option value="__custom__">Type your own</option>
-</select>
+      <button id="startBtn" class="btn btn-primary big-btn w-100">Start logging</button>
+    </section>
 
-<input id="customType" class="form-control mb-3 hidden" placeholder="Enter custom type">
+    <section id="pageLocation" class="card card-soft p-4 hidden">
+      <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <h4 class="mb-1">Capture Location</h4>
+          <div class="small text-secondary">Current structure type: <span id="currentTypeLabel" class="fw-semibold text-dark"></span></div>
+          <div class="small text-secondary">Lake: <span id="lakeLabel" class="fw-semibold text-dark"></span></div>
+          <div class="small text-secondary">Date: <span id="dateLabel" class="fw-semibold text-dark"></span></div>
+        </div>
+        <div class="text-end">
+          <div class="small text-secondary">Saved points</div>
+          <div class="h4 mb-0" id="pointCount">0</div>
+        </div>
+      </div>
 
-<button id="startBtn" class="btn btn-primary big-btn w-100">Start logging</button>
-</section>
+      <div class="coord-box mb-3">
+        <div><b>Latitude:</b> <span id="latValue">-</span></div>
+        <div class="mt-2"><b>Longitude:</b> <span id="lngValue">-</span></div>
+        <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+          <b>Accuracy:</b>
+          <span id="accuracyValue">-</span>
+          <span id="accuracyBadge" class="accuracy-pill" style="background:#6c757d;">
+            <span class="accuracy-dot"></span>
+            <span id="accuracyLabel">Waiting</span>
+          </span>
+        </div>
+      </div>
 
-<section id="pageLocation" class="card card-soft p-4 hidden">
+      <div id="accuracyNote" class="text-secondary small mb-3">
+        Press log location and hold still while the app waits for a GPS fix of 5 meters or better.
+      </div>
 
-<h4 class="mb-3">Capture Location</h4>
+      <div id="spinnerWrap" class="text-center mb-3 hidden">
+        <div class="spinner-border spinner-big text-primary" role="status"></div>
+        <div class="mt-2 small">Improving GPS accuracy...</div>
+      </div>
 
-<div class="coord-box mb-3">
-<div><b>Latitude:</b> <span id="latValue">-</span></div>
-<div><b>Longitude:</b> <span id="lngValue">-</span></div>
-<div><b>Accuracy:</b> <span id="accuracyValue">-</span></div>
-</div>
+      <div class="d-grid gap-2 mb-3">
+        <button id="captureBtn" class="btn btn-success big-btn">Log location (auto waits for ≤ 5m accuracy)</button>
+        <button id="changeTypeBtn" class="btn btn-outline-secondary big-btn">Change structure type</button>
+      </div>
 
-<div id="accuracyNote" class="text-secondary small mb-3">
-Waiting for GPS fix under <b>5 meters</b> accuracy
-</div>
+      <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="mb-0">Collected points</h5>
+          <button id="clearPointsBtn" class="btn btn-sm btn-outline-danger">Clear all</button>
+        </div>
+        <div id="pointsList" class="d-grid gap-2"></div>
+      </div>
 
-<div id="spinnerWrap" class="text-center mb-3 hidden">
-<div class="spinner-border spinner-big text-primary"></div>
-<div class="mt-2 small">Improving GPS accuracy...</div>
-</div>
+      <button id="doneBtn" class="btn btn-primary big-btn w-100">Done collecting</button>
+    </section>
 
-<button id="captureBtn" class="btn btn-success big-btn w-100 mb-3">
-Log location (auto waits for <5m accuracy)
-</button>
+    <section id="pageTypeOnly" class="card card-soft p-4 hidden">
+      <h4 class="mb-3">Change structure type</h4>
+      <p class="text-secondary">This structure type will be used for all new points until you change it again.</p>
 
-<button id="doneBtn" class="btn btn-primary big-btn w-100">Done collecting</button>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="structureTypeEdit">Structure type</label>
+        <select id="structureTypeEdit" class="form-select form-select-lg">
+          <option value="Cedar Tree">Cedar tree</option>
+          <option value="Artificial Habitat">Artificial habitat</option>
+          <option value="__custom__">Type your own</option>
+        </select>
+      </div>
 
-</section>
+      <div id="customTypeEditWrap" class="mb-3 hidden">
+        <label class="form-label fw-semibold" for="customTypeEdit">Custom structure type</label>
+        <input id="customTypeEdit" class="form-control form-control-lg" placeholder="Enter custom type">
+      </div>
 
-</div>
+      <div class="d-grid gap-2">
+        <button id="saveTypeBtn" class="btn btn-primary big-btn">Save structure type</button>
+        <button id="cancelTypeBtn" class="btn btn-outline-secondary big-btn">Back</button>
+      </div>
+    </section>
+  </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
+  <div class="offcanvas offcanvas-end" tabindex="-1" id="helpPanel" aria-labelledby="helpPanelLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="helpPanelLabel">Help</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <h6>How to use the app</h6>
+      <ol class="ps-3 help-list">
+        <li>Enter the lake name. The date is preloaded automatically with today’s date.</li>
+        <li>Select the structure type, or choose <b>Type your own</b>.</li>
+        <li>Tap <b>Start logging</b>.</li>
+        <li>At each brush pile, stand still and tap <b>Log location</b>.</li>
+        <li>The app will keep checking GPS until accuracy is <b>5 meters or better</b>, then it saves the point automatically.</li>
+        <li>Review the running list of saved points and their accuracies.</li>
+        <li>Tap <b>Done collecting</b> to download a CSV and open the email workflow.</li>
+      </ol>
 
-const REQUIRED_ACCURACY = 5
+      <hr>
 
-const state={lakeName:'',surveyDate:'',currentType:'',points:[]}
+      <h6>How to improve accuracy</h6>
+      <ul class="ps-3 help-list">
+        <li>Stand still while logging.</li>
+        <li>Give the phone a few seconds to settle before tapping log.</li>
+        <li>Keep the phone out in the open, not under metal covers or roofs.</li>
+        <li>Open sky usually gives the best results.</li>
+      </ul>
 
-const els={
-pageSetup:document.getElementById('pageSetup'),
-pageLocation:document.getElementById('pageLocation'),
-lakeName:document.getElementById('lakeName'),
-surveyDate:document.getElementById('surveyDate'),
-structureType:document.getElementById('structureType'),
-customType:document.getElementById('customType'),
-startBtn:document.getElementById('startBtn'),
-latValue:document.getElementById('latValue'),
-lngValue:document.getElementById('lngValue'),
-accuracyValue:document.getElementById('accuracyValue'),
-accuracyNote:document.getElementById('accuracyNote'),
-spinnerWrap:document.getElementById('spinnerWrap'),
-captureBtn:document.getElementById('captureBtn'),
-doneBtn:document.getElementById('doneBtn'),
-alertArea:document.getElementById('alertArea')
-}
+      <hr>
 
-function alertMsg(msg,type='warning'){
-els.alertArea.innerHTML=`<div class="alert alert-${type}">${msg}</div>`
-}
+      <h6>Enable location on iPhone</h6>
+      <ol class="ps-3 help-list">
+        <li>Open <b>Settings</b>.</li>
+        <li>Go to <b>Privacy &amp; Security</b> → <b>Location Services</b>.</li>
+        <li>Make sure <b>Location Services</b> is turned on.</li>
+        <li>Find the browser being used, usually <b>Safari</b> or <b>Chrome</b>.</li>
+        <li>Set location access to <b>While Using the App</b>.</li>
+        <li>Turn on <b>Precise Location</b>.</li>
+      </ol>
 
-function showPage(p){
-els.pageSetup.classList.add('hidden')
-els.pageLocation.classList.add('hidden')
-if(p==='location') els.pageLocation.classList.remove('hidden')
-if(p==='setup') els.pageSetup.classList.remove('hidden')
-}
+      <h6 class="mt-3">Enable location in Safari</h6>
+      <ol class="ps-3 help-list">
+        <li>Open the app webpage in Safari.</li>
+        <li>When asked for location permission, tap <b>Allow</b>.</li>
+        <li>If you already denied it, open Safari website settings for the page and allow location access, or clear the site settings and reload.</li>
+      </ol>
 
-els.structureType.addEventListener('change',()=>{
-els.customType.classList.toggle('hidden',els.structureType.value!=='__custom__')
-})
+      <h6 class="mt-3">Enable location in Chrome on iPhone</h6>
+      <ol class="ps-3 help-list">
+        <li>Make sure Chrome has location permission in iPhone settings.</li>
+        <li>Open the app page and allow location when prompted.</li>
+      </ol>
 
-els.startBtn.onclick=()=>{
+      <hr>
 
-const lake=els.lakeName.value.trim()
-let type=els.structureType.value
+      <h6>Automatic email sending</h6>
+      <p class="mb-2">A browser-only HTML app cannot securely send email from its own address by itself. To send automatically without the user’s email app, the app needs a backend service or email API.</p>
+      <p class="mb-0">Examples include a small server, serverless function, or an email provider API such as Microsoft 365, Gmail API, SendGrid, Postmark, or AWS SES. That backend would receive the CSV and send it directly to <b>jehnsen.lebsock@nebraska.gov</b>.</p>
+    </div>
+  </div>
 
-if(type==='__custom__') type=els.customType.value.trim()
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const REQUIRED_ACCURACY = 5;
 
-if(!lake||!type){alertMsg('Enter lake and structure type');return}
+    const state = {
+      lakeName: '',
+      surveyDate: '',
+      currentType: '',
+      points: [],
+      activeWatchId: null
+    };
 
-state.lakeName=lake
-state.currentType=type
-state.surveyDate=els.surveyDate.value
+    const els = {
+      pageSetup: document.getElementById('pageSetup'),
+      pageLocation: document.getElementById('pageLocation'),
+      pageTypeOnly: document.getElementById('pageTypeOnly'),
+      lakeName: document.getElementById('lakeName'),
+      surveyDate: document.getElementById('surveyDate'),
+      structureType: document.getElementById('structureType'),
+      customType: document.getElementById('customType'),
+      customTypeWrap: document.getElementById('customTypeWrap'),
+      startBtn: document.getElementById('startBtn'),
+      latValue: document.getElementById('latValue'),
+      lngValue: document.getElementById('lngValue'),
+      accuracyValue: document.getElementById('accuracyValue'),
+      accuracyBadge: document.getElementById('accuracyBadge'),
+      accuracyLabel: document.getElementById('accuracyLabel'),
+      accuracyNote: document.getElementById('accuracyNote'),
+      spinnerWrap: document.getElementById('spinnerWrap'),
+      captureBtn: document.getElementById('captureBtn'),
+      doneBtn: document.getElementById('doneBtn'),
+      alertArea: document.getElementById('alertArea'),
+      pointsList: document.getElementById('pointsList'),
+      pointCount: document.getElementById('pointCount'),
+      clearPointsBtn: document.getElementById('clearPointsBtn'),
+      changeTypeBtn: document.getElementById('changeTypeBtn'),
+      currentTypeLabel: document.getElementById('currentTypeLabel'),
+      lakeLabel: document.getElementById('lakeLabel'),
+      dateLabel: document.getElementById('dateLabel'),
+      structureTypeEdit: document.getElementById('structureTypeEdit'),
+      customTypeEditWrap: document.getElementById('customTypeEditWrap'),
+      customTypeEdit: document.getElementById('customTypeEdit'),
+      saveTypeBtn: document.getElementById('saveTypeBtn'),
+      cancelTypeBtn: document.getElementById('cancelTypeBtn')
+    };
 
-showPage('location')
-}
+    function todayString() {
+      const d = new Date();
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
 
-els.captureBtn.onclick=()=>{
+    function alertMsg(msg, type = 'warning') {
+      els.alertArea.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">${msg}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
+    }
 
-if(!navigator.geolocation){alertMsg('Geolocation not supported','danger');return}
+    function clearAlert() {
+      els.alertArea.innerHTML = '';
+    }
 
-els.spinnerWrap.classList.remove('hidden')
-els.captureBtn.disabled=true
+    function showPage(pageName) {
+      els.pageSetup.classList.add('hidden');
+      els.pageLocation.classList.add('hidden');
+      els.pageTypeOnly.classList.add('hidden');
+      if (pageName === 'setup') els.pageSetup.classList.remove('hidden');
+      if (pageName === 'location') els.pageLocation.classList.remove('hidden');
+      if (pageName === 'type') els.pageTypeOnly.classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
 
-let watchId
+    function getSelectedType(selectEl, inputEl) {
+      return selectEl.value === '__custom__' ? inputEl.value.trim() : selectEl.value.trim();
+    }
 
-watchId=navigator.geolocation.watchPosition(pos=>{
+    function toggleCustomWrap(selectEl, wrapEl) {
+      wrapEl.classList.toggle('hidden', selectEl.value !== '__custom__');
+    }
 
-const lat=pos.coords.latitude
-const lng=pos.coords.longitude
-const acc=pos.coords.accuracy
+    function getAccuracyMeta(acc) {
+      if (!Number.isFinite(acc)) {
+        return { label: 'Waiting', color: '#6c757d' };
+      }
+      if (acc <= 5) {
+        return { label: 'Excellent', color: '#198754' };
+      }
+      if (acc <= 10) {
+        return { label: 'Good', color: '#8bc34a' };
+      }
+      if (acc <= 20) {
+        return { label: 'Fair', color: '#ffc107' };
+      }
+      if (acc <= 30) {
+        return { label: 'Poor', color: '#fd7e14' };
+      }
+      return { label: 'Very Poor', color: '#dc3545' };
+    }
 
-els.latValue.textContent=lat.toFixed(6)
-els.lngValue.textContent=lng.toFixed(6)
-els.accuracyValue.textContent=acc.toFixed(2)+' meters'
+    function updateAccuracyDisplay(acc) {
+      if (!Number.isFinite(acc)) {
+        els.accuracyValue.textContent = '-';
+        els.accuracyBadge.style.background = '#6c757d';
+        els.accuracyLabel.textContent = 'Waiting';
+        return;
+      }
+      const meta = getAccuracyMeta(acc);
+      els.accuracyValue.textContent = `${acc.toFixed(2)} meters`;
+      els.accuracyBadge.style.background = meta.color;
+      els.accuracyLabel.textContent = meta.label;
+    }
 
-if(acc<=REQUIRED_ACCURACY){
+    function updateHeaderInfo() {
+      els.currentTypeLabel.textContent = state.currentType;
+      els.lakeLabel.textContent = state.lakeName;
+      els.dateLabel.textContent = state.surveyDate;
+    }
 
-navigator.geolocation.clearWatch(watchId)
+    function formatTimestamp(dateValue) {
+      return new Date(dateValue).toLocaleString();
+    }
 
-state.points.push({
-latitude:lat,
-longitude:lng,
-accuracy:acc,
-habitatType:state.currentType,
-timestamp:new Date().toISOString()
-})
+    function updatePointsList() {
+      els.pointCount.textContent = state.points.length;
+      if (!state.points.length) {
+        els.pointsList.innerHTML = '<div class="text-secondary small">No points collected yet.</div>';
+        return;
+      }
 
-els.spinnerWrap.classList.add('hidden')
-els.captureBtn.disabled=false
+      els.pointsList.innerHTML = state.points.map((point, index) => {
+        const meta = getAccuracyMeta(point.accuracy);
+        return `
+          <div class="point-item">
+            <div class="d-flex justify-content-between align-items-start gap-2">
+              <div>
+                <div class="fw-semibold">Point ${index + 1}</div>
+                <div class="small text-secondary">${point.habitatType}</div>
+              </div>
+              <span class="accuracy-pill" style="background:${meta.color};">
+                <span class="accuracy-dot"></span>
+                ${point.accuracy.toFixed(2)} m
+              </span>
+            </div>
+            <div class="small mt-2"><strong>Lat:</strong> ${point.latitude.toFixed(6)}</div>
+            <div class="small"><strong>Lng:</strong> ${point.longitude.toFixed(6)}</div>
+            <div class="small text-secondary mt-1">Captured: ${point.timestamp}</div>
+          </div>
+        `;
+      }).join('');
+    }
 
-alertMsg('Point saved with '+acc.toFixed(2)+'m accuracy','success')
-}
+    function stopWatch() {
+      if (state.activeWatchId !== null) {
+        navigator.geolocation.clearWatch(state.activeWatchId);
+        state.activeWatchId = null;
+      }
+    }
 
-},err=>{
-alertMsg('GPS error','danger')
-els.spinnerWrap.classList.add('hidden')
-els.captureBtn.disabled=false
-},{enableHighAccuracy:true,maximumAge:0,timeout:20000})
-}
+    function resetCaptureUi() {
+      els.spinnerWrap.classList.add('hidden');
+      els.captureBtn.disabled = false;
+      els.captureBtn.textContent = 'Log location (auto waits for ≤ 5m accuracy)';
+    }
 
-function buildCSV(){
+    function csvEscape(value) {
+      const stringValue = String(value ?? '');
+      if (/[",\n]/.test(stringValue)) {
+        return '"' + stringValue.replace(/"/g, '""') + '"';
+      }
+      return stringValue;
+    }
 
-let rows=[['Lake','Date','Habitat','Latitude','Longitude','Accuracy(m)']]
+    function buildCSV() {
+      const rows = [['Lake','Date','Habitat','Latitude','Longitude','Accuracy(m)','Captured At']];
+      state.points.forEach(point => {
+        rows.push([
+          state.lakeName,
+          state.surveyDate,
+          point.habitatType,
+          point.latitude,
+          point.longitude,
+          point.accuracy.toFixed(2),
+          point.timestamp
+        ]);
+      });
+      return rows.map(r => r.map(csvEscape).join(',')).join('\n');
+    }
 
-state.points.forEach(p=>{
-rows.push([
-state.lakeName,
-state.surveyDate,
-p.habitatType,
-p.latitude,
-p.longitude,
-p.accuracy
-])
-})
+    function sanitizeFilePart(value) {
+      return String(value || '')
+        .trim()
+        .replace(/[^a-z0-9]+/gi, '_')
+        .replace(/^_+|_+$/g, '') || 'lake';
+    }
 
-return rows.map(r=>r.join(',')).join('\n')
-}
+    function downloadCsv(csv) {
+      const fileName = `${sanitizeFilePart(state.lakeName)}_${state.surveyDate}_brush_piles.csv`;
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return { blob, fileName };
+    }
 
-els.doneBtn.onclick=()=>{
+    async function shareCsv(blob, fileName, csvText) {
+      if (navigator.share && navigator.canShare) {
+        const file = new File([blob], fileName, { type: 'text/csv' });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              title: `Brush pile points - ${state.lakeName}`,
+              text: `Brush pile habitat points for ${state.lakeName} on ${state.surveyDate}`,
+              files: [file]
+            });
+            return true;
+          } catch (error) {
+            if (error && error.name !== 'AbortError') {
+              console.warn(error);
+            }
+          }
+        }
+      }
 
-if(!state.points.length){alertMsg('No points collected');return}
+      try {
+        await navigator.clipboard.writeText(csvText);
+        alertMsg('CSV downloaded. Sharing is limited on this device, so the CSV was also copied to your clipboard.', 'info');
+      } catch (error) {
+        alertMsg('CSV downloaded. Sharing is limited on this device.', 'info');
+      }
+      return false;
+    }
 
-const csv=buildCSV()
+    function openEmailDraft(csvText) {
+      const subject = `Brush pile log - ${state.lakeName} - ${state.surveyDate}`;
+      const body = [
+        `Lake: ${state.lakeName}`,
+        `Date: ${state.surveyDate}`,
+        '',
+        'CSV data:',
+        csvText,
+        '',
+        'Automatic background sending from the app itself requires a backend email service.'
+      ].join('\n');
+      const mailto = `mailto:jehnsen.lebsock@nebraska.gov?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailto;
+    }
 
-const blob=new Blob([csv],{type:'text/csv'})
+    function startLogging() {
+      clearAlert();
+      const lake = els.lakeName.value.trim();
+      const selectedType = getSelectedType(els.structureType, els.customType);
+      const dateValue = els.surveyDate.value || todayString();
 
-const a=document.createElement('a')
-a.href=URL.createObjectURL(blob)
-a.download='brush_piles_'+state.lakeName+'.csv'
-a.click()
+      if (!lake) {
+        alertMsg('Please enter a lake name.');
+        return;
+      }
+      if (!selectedType) {
+        alertMsg('Please choose or enter a structure type.');
+        return;
+      }
 
-const subject=`Brush pile log ${state.lakeName} ${state.surveyDate}`
+      state.lakeName = lake;
+      state.currentType = selectedType;
+      state.surveyDate = dateValue;
+      updateHeaderInfo();
+      updatePointsList();
+      showPage('location');
+    }
 
-window.location.href=`mailto:jehnsen.lebsock@nebraska.gov?subject=${encodeURIComponent(subject)}`
-}
+    function beginCapture() {
+      clearAlert();
+      if (!navigator.geolocation) {
+        alertMsg('Geolocation is not supported on this device or browser.', 'danger');
+        return;
+      }
 
-</script>
+      stopWatch();
+      els.spinnerWrap.classList.remove('hidden');
+      els.captureBtn.disabled = true;
+      els.captureBtn.textContent = 'Waiting for accurate GPS fix...';
+      els.accuracyNote.innerHTML = 'Looking for a GPS reading of <b>5 meters or better</b>. Hold still for best results.';
+
+      state.activeWatchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const acc = pos.coords.accuracy;
+
+          els.latValue.textContent = lat.toFixed(6);
+          els.lngValue.textContent = lng.toFixed(6);
+          updateAccuracyDisplay(acc);
+
+          if (acc <= REQUIRED_ACCURACY) {
+            stopWatch();
+            state.points.push({
+              latitude: lat,
+              longitude: lng,
+              accuracy: acc,
+              habitatType: state.currentType,
+              timestamp: formatTimestamp(pos.timestamp || Date.now())
+            });
+            updatePointsList();
+            resetCaptureUi();
+            els.accuracyNote.innerHTML = 'Point saved. You can log the next location when ready.';
+            alertMsg(`Point saved with ${acc.toFixed(2)} meter accuracy.`, 'success');
+          }
+        },
+        (err) => {
+          stopWatch();
+          resetCaptureUi();
+          const messageMap = {
+            1: 'Location permission was denied. Enable location for the browser and try again.',
+            2: 'Location information is unavailable. Move to an area with better sky view and try again.',
+            3: 'GPS timed out before reaching the target accuracy. Try again and stay still longer.'
+          };
+          alertMsg(messageMap[err.code] || 'GPS error while collecting the location.', 'danger');
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 20000
+        }
+      );
+    }
+
+    els.structureType.addEventListener('change', () => toggleCustomWrap(els.structureType, els.customTypeWrap));
+    els.structureTypeEdit.addEventListener('change', () => toggleCustomWrap(els.structureTypeEdit, els.customTypeEditWrap));
+
+    els.startBtn.addEventListener('click', startLogging);
+    els.captureBtn.addEventListener('click', beginCapture);
+
+    els.changeTypeBtn.addEventListener('click', () => {
+      clearAlert();
+      if (state.currentType === 'Cedar Tree') {
+        els.structureTypeEdit.value = 'Cedar Tree';
+        els.customTypeEdit.value = '';
+      } else if (state.currentType === 'Artificial Habitat') {
+        els.structureTypeEdit.value = 'Artificial Habitat';
+        els.customTypeEdit.value = '';
+      } else {
+        els.structureTypeEdit.value = '__custom__';
+        els.customTypeEdit.value = state.currentType;
+      }
+      toggleCustomWrap(els.structureTypeEdit, els.customTypeEditWrap);
+      showPage('type');
+    });
+
+    els.saveTypeBtn.addEventListener('click', () => {
+      const newType = getSelectedType(els.structureTypeEdit, els.customTypeEdit);
+      if (!newType) {
+        alertMsg('Please choose or enter a structure type.');
+        return;
+      }
+      state.currentType = newType;
+      updateHeaderInfo();
+      showPage('location');
+      alertMsg(`Structure type updated to ${newType}.`, 'success');
+    });
+
+    els.cancelTypeBtn.addEventListener('click', () => showPage('location'));
+
+    els.clearPointsBtn.addEventListener('click', () => {
+      if (!state.points.length) {
+        alertMsg('There are no points to clear.', 'info');
+        return;
+      }
+      if (!window.confirm('Clear all saved points?')) return;
+      state.points = [];
+      els.latValue.textContent = '-';
+      els.lngValue.textContent = '-';
+      updateAccuracyDisplay(NaN);
+      updatePointsList();
+      alertMsg('All saved points were cleared.', 'info');
+    });
+
+    els.doneBtn.addEventListener('click', async () => {
+      clearAlert();
+      if (!state.points.length) {
+        alertMsg('No points collected yet.');
+        return;
+      }
+      const csv = buildCSV();
+      const { blob, fileName } = downloadCsv(csv);
+      await shareCsv(blob, fileName, csv);
+      openEmailDraft(csv);
+      alertMsg('CSV downloaded and the email workflow was opened.', 'success');
+    });
+
+    function init() {
+      els.surveyDate.value = todayString();
+      updateAccuracyDisplay(NaN);
+      updatePointsList();
+    }
+
+    init();
+  </script>
 </body>
 </html>
