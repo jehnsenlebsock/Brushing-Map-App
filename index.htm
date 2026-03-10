@@ -213,6 +213,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const REQUIRED_ACCURACY = 5;
+    const MAX_CAPTURE_TIME_MS = 30000; // auto stop after 30 seconds
     const CONSECUTIVE_GOOD_FIXES_REQUIRED = 3;
     const AVERAGE_FIX_COUNT = 5;
     const MIN_WARMUP_FIXES = 2;
@@ -364,8 +365,10 @@
         navigator.geolocation.clearWatch(state.activeWatchId);
         state.activeWatchId = null;
       }
-      if (state.captureSession && state.captureSession.hintTimerId) {
-        clearTimeout(state.captureSession.hintTimerId);
+      if (state.captureSession) {
+        if (state.captureSession.hintTimerId) clearTimeout(state.captureSession.hintTimerId);
+        if (state.captureSession.timeoutId) clearTimeout(state.captureSession.timeoutId);
+      }
       }
       state.captureSession = null;
       state.accuracyHintShown = false;
@@ -574,7 +577,8 @@
         goodFixesInRow: 0,
         acceptedFixes: [],
         bestAccuracySeen: Infinity,
-        hintTimerId: null
+        hintTimerId: null,
+        timeoutId: null
       };
       state.accuracyHintShown = false;
 
@@ -587,14 +591,14 @@
       els.lngValue.textContent = '-';
       updateProgressNote();
 
-      state.captureSession.hintTimerId = setTimeout(() => {
+      state.captureSession.timeoutId = setTimeout(() => {
         const session = state.captureSession;
-        if (!session || state.accuracyHintShown) return;
-        if (session.bestAccuracySeen > REQUIRED_ACCURACY) {
-          state.accuracyHintShown = true;
-          alertMsg('Accuracy has not reached 5 meters after about 20 seconds. Tap “Stop current location capture” and try again for a fresh GPS lock.', 'warning');
-        }
-      }, 20000);
+        if (!session) return;
+        stopWatch();
+        resetCaptureUi();
+        els.accuracyNote.innerHTML = 'Location capture stopped after 30 seconds.';
+        alertMsg('GPS accuracy did not reach 5 meters within 30 seconds. Tap "Log location" to restart the capture and try again.', 'warning');
+      }, MAX_CAPTURE_TIME_MS);
 
       state.activeWatchId = navigator.geolocation.watchPosition(
         (pos) => {
