@@ -591,6 +591,15 @@
       els.lngValue.textContent = '-';
       updateProgressNote();
 
+      state.captureSession.hintTimerId = setTimeout(() => {
+        const session = state.captureSession;
+        if (!session || state.accuracyHintShown) return;
+        if (session.bestAccuracySeen > REQUIRED_ACCURACY) {
+          state.accuracyHintShown = true;
+          alertMsg('Accuracy has not reached 5 meters after about 20 seconds. Tap “Stop current location capture” and try again for a fresh GPS lock.', 'warning');
+        }
+      }, 20000);
+
       state.captureSession.timeoutId = setTimeout(() => {
         const session = state.captureSession;
         if (!session) return;
