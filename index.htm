@@ -109,6 +109,8 @@
 
       <div class="d-grid gap-2 mb-3">
         <button id="captureBtn" class="btn btn-success big-btn">Log location (auto waits for ≤ 5m accuracy)</button>
+        <button id="stopCaptureBtn" class="btn btn-outline-warning big-btn hidden">Stop current location capture</button>
+        <button id="captureBtn" class="btn btn-success big-btn">Log location (auto waits for ≤ 5m accuracy)</button>
         <button id="changeTypeBtn" class="btn btn-outline-secondary big-btn">Change structure type</button>
       </div>
 
@@ -223,7 +225,8 @@
       currentType: '',
       points: [],
       activeWatchId: null,
-      captureSession: null
+      captureSession: null,
+      accuracyHintShown: false
     };
 
     const els = {
@@ -244,6 +247,7 @@
       accuracyNote: document.getElementById('accuracyNote'),
       spinnerWrap: document.getElementById('spinnerWrap'),
       captureBtn: document.getElementById('captureBtn'),
+      stopCaptureBtn: document.getElementById('stopCaptureBtn'),
       doneBtn: document.getElementById('doneBtn'),
       alertArea: document.getElementById('alertArea'),
       pointsList: document.getElementById('pointsList'),
@@ -360,13 +364,18 @@
         navigator.geolocation.clearWatch(state.activeWatchId);
         state.activeWatchId = null;
       }
+      if (state.captureSession && state.captureSession.hintTimerId) {
+        clearTimeout(state.captureSession.hintTimerId);
+      }
       state.captureSession = null;
+      state.accuracyHintShown = false;
     }
 
     function resetCaptureUi() {
       els.spinnerWrap.classList.add('hidden');
       els.captureBtn.disabled = false;
       els.captureBtn.textContent = 'Log location (auto waits for ≤ 5m accuracy)';
+      els.stopCaptureBtn.classList.add('hidden');
     }
 
     function csvEscape(value) {
@@ -563,16 +572,29 @@
       state.captureSession = {
         warmupFixesSeen: 0,
         goodFixesInRow: 0,
-        acceptedFixes: []
+        acceptedFixes: [],
+        bestAccuracySeen: Infinity,
+        hintTimerId: null
       };
+      state.accuracyHintShown = false;
 
       els.spinnerWrap.classList.remove('hidden');
       els.captureBtn.disabled = true;
       els.captureBtn.textContent = 'Waiting for accurate GPS fix...';
+      els.stopCaptureBtn.classList.remove('hidden');
       updateAccuracyDisplay(NaN);
       els.latValue.textContent = '-';
       els.lngValue.textContent = '-';
       updateProgressNote();
+
+      state.captureSession.hintTimerId = setTimeout(() => {
+        const session = state.captureSession;
+        if (!session || state.accuracyHintShown) return;
+        if (session.bestAccuracySeen > REQUIRED_ACCURACY) {
+          state.accuracyHintShown = true;
+          alertMsg('Accuracy has not reached 5 meters after about 20 seconds. Tap “Stop current location capture” and try again for a fresh GPS lock.', 'warning');
+        }
+      }, 20000);
 
       state.activeWatchId = navigator.geolocation.watchPosition(
         (pos) => {
@@ -584,6 +606,9 @@
           const acc = pos.coords.accuracy;
           const timestamp = pos.timestamp || Date.now();
           const isFresh = (Date.now() - timestamp) <= STALE_FIX_MS;
+          if (acc < session.bestAccuracySeen) {
+            session.bestAccuracySeen = acc;
+          }
 
           els.latValue.textContent = lat.toFixed(6);
           els.lngValue.textContent = lng.toFixed(6);
@@ -641,6 +666,12 @@
     els.structureTypeEdit.addEventListener('change', () => toggleCustomWrap(els.structureTypeEdit, els.customTypeEditWrap));
     els.startBtn.addEventListener('click', startLogging);
     els.captureBtn.addEventListener('click', beginCapture);
+    els.stopCaptureBtn.addEventListener('click', () => {
+      stopWatch();
+      resetCaptureUi();
+      els.accuracyNote.innerHTML = 'Location capture stopped. Tap log location to start a fresh GPS capture.';
+      alertMsg('Location capture stopped. Start again when you are ready.', 'info');
+    });
 
     els.changeTypeBtn.addEventListener('click', () => {
       clearAlert();
